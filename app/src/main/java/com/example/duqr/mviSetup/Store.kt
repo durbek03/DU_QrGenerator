@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class Store<I : Intent, S : State>(
     initialState: S,
@@ -41,9 +40,12 @@ class Store<I : Intent, S : State>(
         var previousIntent: I = intent
         for (i in this@filterThrough.indices) {
             this@filterThrough[i].dispatch(previousIntent, state) { filteredIntent ->
-                previousIntent = filteredIntent
+                if (i == this.lastIndex) {
+                    newIntent.invoke(filteredIntent)
+                } else {
+                    previousIntent = filteredIntent
+                }
             }
         }
-        newIntent.invoke(previousIntent)
     }
 }

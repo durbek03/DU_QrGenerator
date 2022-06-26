@@ -16,9 +16,9 @@ class GeneratorPageReducer @Inject constructor() : Reducer<GeneratorPageIntent, 
                 return state.copy(color = intent.color)
             }
             is GeneratorPageIntent.TextFieldChanged -> {
-                return state.copy(url = intent.newText)
+                return state.copy(textToEmbed = intent.newText)
             }
-            is GeneratorPageIntent.QrCodeGenerated -> {
+            is GeneratorPageIntent.QrCodeBitmapGenerated -> {
                 return state.copy(qrCode = intent.newQr, loaderOn = false)
             }
             is GeneratorPageIntent.ChangeLoaderVisibility -> {

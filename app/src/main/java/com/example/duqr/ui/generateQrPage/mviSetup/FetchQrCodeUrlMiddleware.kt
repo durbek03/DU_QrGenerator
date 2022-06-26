@@ -3,18 +3,15 @@ package com.example.duqr.ui.generateQrPage.mviSetup
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import android.view.View
-import com.example.duqr.ConnectivityHelper
-import com.example.duqr.MainActivity
 import com.example.duqr.data.remote.ApiService
-import com.example.duqr.mviSetup.Intent
 import com.example.duqr.mviSetup.Middleware
-import com.example.duqr.mviSetup.State
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
-import retrofit2.http.Multipart
 import java.io.File
 import java.io.FileOutputStream
 import java.lang.Exception
@@ -22,7 +19,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 
-class GenerateQrMiddleware @Inject constructor(
+class FetchQrCodeUrlMiddleware @Inject constructor(
     @ApplicationContext private val context: Context,
     val apiService: ApiService,
 ) : Middleware<GeneratorPageIntent, GeneratorPageState> {
@@ -32,22 +29,24 @@ class GenerateQrMiddleware @Inject constructor(
         state: GeneratorPageState,
         newIntent: (GeneratorPageIntent) -> Unit
     ) {
-        if (intent is GeneratorPageIntent.GenerateQrButtonClicked) {
+        if (intent is GeneratorPageIntent.GenerateQr) {
             val uri = state.avaImage
             val multipart = uri?.toMultiPart()
 
             try {
                 val response = apiService.getQrCode(
-                    state.url,
-                    state.color.toString(),
+                    state.textToEmbed,
+                    state.color,
                     multipart
                 )
-                newIntent.invoke(GeneratorPageIntent.QrCodeGenerated(response.url))
+                newIntent.invoke(GeneratorPageIntent.QrCodeUrlFetched(response.url))
                 Log.d(TAG, "dispatch: remote response -> ${response.url}")
             } catch (e: Exception) {
                 e.printStackTrace()
                 Log.d(TAG, "dispatch: remote exception ${e.message}")
             }
+        } else {
+            newIntent.invoke(intent)
         }
     }
 

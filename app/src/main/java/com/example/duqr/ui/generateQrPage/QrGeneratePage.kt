@@ -3,13 +3,16 @@ package com.example.duqr.ui.generateQrPage
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +29,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -45,10 +49,10 @@ import com.example.duqr.constants.collectFlowAsState
 import com.example.duqr.ui.generateQrPage.mviSetup.GeneratorPageState
 import com.godaddy.android.colorpicker.ClassicColorPicker
 import com.godaddy.android.colorpicker.HsvColor
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flow
 
 private val TAG = "QrGeneratePage"
 
@@ -75,7 +79,7 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        QrCode(state = state.value, modifier = Modifier.fillMaxHeight(0.23f))
+        QrCode(state = state.value, modifier = Modifier.fillMaxHeight(0.23f), viewModel = viewModel)
         Spacer(modifier = Modifier.height(20.dp))
         Button(
             colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.surface),
@@ -85,7 +89,7 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             Text(text = "Generate", color = MaterialTheme.colors.onSurface)
         }
         Spacer(modifier = Modifier.height(20.dp))
-        UrlTextField(value = state.value.url, focusRequester = focusRequester) { newText ->
+        UrlTextField(value = state.value.textToEmbed, focusRequester = focusRequester) { newText ->
             viewModel.onTextFieldChange(newText)
         }
         Spacer(modifier = Modifier.height(20.dp))
@@ -120,7 +124,7 @@ fun generate(
 ) {
     val connectivityHelper = ConnectivityHelper(context)
 
-    if (state.url.isEmpty()) {
+    if (state.textToEmbed.isEmpty()) {
         Toast.makeText(
             context,
             "No proper information provided to embed with QR code",
@@ -132,7 +136,7 @@ fun generate(
                 Log.d(TAG, "generate: hasInternet")
                 withContext(Dispatchers.Main) {
                     viewModel.showProgressBar()
-                    viewModel.onGenerateButtonClicked()
+                    viewModel.generateQrCode()
                     Toast.makeText(
                         context,
                         "Generating..., please wait a moment",
@@ -154,32 +158,55 @@ fun generate(
 }
 
 @Composable
-fun QrCode(modifier: Modifier = Modifier, state: GeneratorPageState) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+fun QrCode(
+    modifier: Modifier = Modifier,
+    state: GeneratorPageState,
+    viewModel: GeneratorPageViewModel
+) {
+    val context = LocalContext.current
+    val askForWritePermission =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()) {
+            if (it) {
+                saveQrImageToExternalStorage(context, state, viewModel)
+            } else {
+                Toast.makeText(context, "Cannot save without permission", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.Bottom
+    ) {
         ActionIcon(
             modifier = Modifier.offset(x = (-15).dp),
             iconId = R.drawable.ic_share,
-            !state.qrCode.isNullOrEmpty()
+            isVisible = state.qrCode != null
         ) {
+            if (state.qrCode != null) {
 
+            }
         }
         //qrBox
         Box(
             modifier = Modifier,
             contentAlignment = Alignment.Center
+
         ) {
             if (state.loaderOn) {
-                CircularProgressIndicator(color = MaterialTheme.colors.surface)
-            } else {
-                AsyncImage(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .aspectRatio(1f, true),
-                    model = state.qrCode,
-                    fallback = painterResource(id = R.drawable.ic_dashedrec),
-                    error = painterResource(id = R.drawable.ic_dashedrec),
-                    contentDescription = "QR",
+                CircularProgressIndicator(
+                    modifier = Modifier.offset(y = (-50).dp), color = MaterialTheme.colors.surface
                 )
+            } else {
+                if (state.qrCode != null) {
+                    Image(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(1f, true),
+                        contentDescription = "QR",
+                        bitmap = state.qrCode!!.asImageBitmap()
+                    )
+                }
                 if (state.qrCode == null) {
                     Text(
                         text = "Here will be your generated QR code",
@@ -189,14 +216,38 @@ fun QrCode(modifier: Modifier = Modifier, state: GeneratorPageState) {
                 }
             }
         }
+        Log.d(TAG, "QrCode: assigning qr -> ${state.qrCode}")
         ActionIcon(
             modifier = Modifier.offset(x = (15).dp),
             iconId = R.drawable.ic_save,
-            !state.qrCode.isNullOrEmpty()
+            state.qrCode != null
         ) {
-
+            val writePermissionGranted = checkIfHasWritePermission(context)
+            if (writePermissionGranted) {
+                saveQrImageToExternalStorage(context, state, viewModel)
+            } else {
+                askForWritePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
         }
     }
+}
+
+fun saveQrImageToExternalStorage(
+    context: Context,
+    state: GeneratorPageState,
+    viewModel: GeneratorPageViewModel
+) {
+    if (state.qrCode != null) {
+        viewModel.saveQrImageToExternalStorage(context, state.textToEmbed)
+        Toast.makeText(context, "Successfully saved", Toast.LENGTH_SHORT).show()
+    }
+}
+
+fun checkIfHasWritePermission(context: Context): Boolean {
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.WRITE_EXTERNAL_STORAGE
+    ) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 }
 
 @Composable
@@ -213,6 +264,9 @@ fun RowScope.ActionIcon(
                 .height(30.dp)
                 .clip(RoundedCornerShape(5.dp))
                 .background(MaterialTheme.colors.surface)
+                .clickable {
+                    onClick.invoke()
+                }
                 .padding(5.dp),
             painter = painterResource(id = iconId),
             contentDescription = "icon share",
