@@ -1,6 +1,7 @@
 package com.example.duqr.ui.generateQrPage
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -8,6 +9,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.duqr.mviSetup.Store
 import com.example.duqr.ui.generateQrPage.mviSetup.*
+import com.example.duqr.ui.generateQrPage.useCase.SaveQrUseCase
+import com.example.duqr.ui.generateQrPage.useCase.ShareQrUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +23,8 @@ import javax.inject.Inject
 class GeneratorPageViewModel @Inject constructor(
     fetchUrlMiddleware: FetchQrCodeUrlMiddleware,
     fetchBitmapMiddleware: FetchQrCodeBitmapMiddleware,
+    val saveQrUseCase: SaveQrUseCase,
+    val shareQrUseCase: ShareQrUseCase,
     reducer: GeneratorPageReducer
 ) : ViewModel() {
     private val TAG = "GeneratorPageViewModel"
@@ -35,7 +40,7 @@ class GeneratorPageViewModel @Inject constructor(
     )
 
     fun onTextFieldChange(newText: String) {
-        store.dispatch(GeneratorPageIntent.TextFieldChanged(newText = newText))
+   //     store.dispatch(GeneratorPageIntent.TextFieldStateChanged(newText))
     }
 
     fun onAvaImagePicked(uri: Uri?) {
@@ -54,11 +59,12 @@ class GeneratorPageViewModel @Inject constructor(
         store.dispatch(GeneratorPageIntent.ChangeLoaderVisibility(true))
     }
 
-    fun saveQrImageToExternalStorage(context: Context, qrUrl: String) {
+    fun saveQrImageToExternalStorage(context: Context, bitmap: Bitmap): Boolean {
+        return saveQrUseCase.saveQrToExternalStorage(context, bitmap)
     }
 
-    fun onShareButtonClicked() {
-
+    fun onShareButtonClicked(context: Context, bitmap: Bitmap) {
+        shareQrUseCase.shareQr(context, bitmap)
     }
 
 
@@ -66,7 +72,7 @@ class GeneratorPageViewModel @Inject constructor(
         viewModelScope.launch {
             store.state.collectLatest {
                 Log.d(TAG, "newStateTracker: ${it.toString()}")
-                _state.emit(it)
+                _state.value = it
             }
         }
     }

@@ -1,9 +1,7 @@
 package com.example.duqr.ui.generateQrPage
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -12,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,20 +27,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
 import coil.compose.AsyncImage
 import com.example.duqr.ConnectivityHelper
 import com.example.duqr.R
@@ -50,9 +46,6 @@ import com.example.duqr.ui.generateQrPage.mviSetup.GeneratorPageState
 import com.godaddy.android.colorpicker.ClassicColorPicker
 import com.godaddy.android.colorpicker.HsvColor
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flow
 
 private val TAG = "QrGeneratePage"
 
@@ -89,7 +82,7 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             Text(text = "Generate", color = MaterialTheme.colors.onSurface)
         }
         Spacer(modifier = Modifier.height(20.dp))
-        UrlTextField(value = state.value.textToEmbed, focusRequester = focusRequester) { newText ->
+        UrlTextField(focusRequester = focusRequester) { newText ->
             viewModel.onTextFieldChange(newText)
         }
         Spacer(modifier = Modifier.height(20.dp))
@@ -184,21 +177,20 @@ fun QrCode(
             isVisible = state.qrCode != null
         ) {
             if (state.qrCode != null) {
-
+                viewModel.onShareButtonClicked(context, state.qrCode!!)
             }
         }
         //qrBox
         Box(
-            modifier = Modifier,
             contentAlignment = Alignment.Center
-
         ) {
-            if (state.loaderOn) {
-                CircularProgressIndicator(
-                    modifier = Modifier.offset(y = (-50).dp), color = MaterialTheme.colors.surface
-                )
-            } else {
-                if (state.qrCode != null) {
+            Crossfade(targetState = state) {
+                if (it.loaderOn) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.offset(y = (-50).dp),
+                        color = MaterialTheme.colors.surface
+                    )
+                } else if (it.qrCode != null) {
                     Image(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -206,9 +198,17 @@ fun QrCode(
                         contentDescription = "QR",
                         bitmap = state.qrCode!!.asImageBitmap()
                     )
-                }
-                if (state.qrCode == null) {
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_dashedrec),
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(1f, true)
+                            .align(Alignment.Center),
+                        contentDescription = "dashed rec"
+                    )
                     Text(
+                        modifier = Modifier.align(Alignment.Center),
                         text = "Here will be your generated QR code",
                         color = MaterialTheme.colors.onBackground,
                         fontWeight = FontWeight.Bold
@@ -238,8 +238,11 @@ fun saveQrImageToExternalStorage(
     viewModel: GeneratorPageViewModel
 ) {
     if (state.qrCode != null) {
-        viewModel.saveQrImageToExternalStorage(context, state.textToEmbed)
-        Toast.makeText(context, "Successfully saved", Toast.LENGTH_SHORT).show()
+        if (viewModel.saveQrImageToExternalStorage(context, state.qrCode!!)) {
+            Toast.makeText(context, "Successfully saved", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
+        }
     }
 }
 
@@ -278,10 +281,12 @@ fun RowScope.ActionIcon(
 @Composable
 fun UrlTextField(
     modifier: Modifier = Modifier,
-    value: String,
     focusRequester: FocusRequester,
     onValueChange: (String) -> Unit
 ) {
+    val textFieldState = remember {
+        mutableStateOf<String>("")
+    }
     val customTextSelectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colors.primaryVariant,
         backgroundColor = MaterialTheme.colors.primaryVariant.copy(alpha = 0.4f)
@@ -296,8 +301,11 @@ fun UrlTextField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                value = value,
-                onValueChange = onValueChange,
+                value = textFieldState.value,
+                onValueChange = {
+                    textFieldState.value = it
+                    onValueChange.invoke(it)
+                },
                 label = {
                     Text(
                         text = "Url to embed with QR",

@@ -1,13 +1,12 @@
 package com.example.duqr.ui.generateQrPage.mviSetup
 
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.net.Uri
 import com.example.duqr.mviSetup.Intent
 
 
 sealed class GeneratorPageIntent : Intent {
-    data class TextFieldChanged(val newText: String) : GeneratorPageIntent()
+    data class TextFieldStateChanged(val textToEmbed: String) : GeneratorPageIntent()
     data class AvaImagePicked(val newImage: Uri?) : GeneratorPageIntent()
     data class ColorPicked(val color: String) : GeneratorPageIntent()
     object GenerateQr : GeneratorPageIntent()

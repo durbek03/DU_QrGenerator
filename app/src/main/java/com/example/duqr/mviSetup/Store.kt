@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -16,7 +17,7 @@ class Store<I : Intent, S : State>(
 ) {
     private val TAG = "Store"
     private val _state = MutableStateFlow(initialState)
-    val state: StateFlow<S> = _state
+    val state: Flow<S> = _state
 
     fun dispatch(intent: I) {
         val oldState = _state.value
