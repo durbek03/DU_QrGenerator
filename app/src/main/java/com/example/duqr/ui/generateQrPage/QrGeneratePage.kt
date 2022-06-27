@@ -3,6 +3,7 @@ package com.example.duqr.ui.generateQrPage
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -72,7 +73,7 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        QrCode(state = state.value, modifier = Modifier.fillMaxHeight(0.23f), viewModel = viewModel)
+        QrCode(qrBitmap = state.value.qrCode, loaderOn = state.value.loaderOn, modifier = Modifier.fillMaxHeight(0.23f), viewModel = viewModel)
         Spacer(modifier = Modifier.height(20.dp))
         Button(
             colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.surface),
@@ -82,7 +83,7 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             Text(text = "Generate", color = MaterialTheme.colors.onSurface)
         }
         Spacer(modifier = Modifier.height(20.dp))
-        UrlTextField(focusRequester = focusRequester) { newText ->
+        UrlTextField(focusRequester = focusRequester, initialValue = state.value.textToEmbed) { newText ->
             viewModel.onTextFieldChange(newText)
         }
         Spacer(modifier = Modifier.height(20.dp))
@@ -153,14 +154,15 @@ fun generate(
 @Composable
 fun QrCode(
     modifier: Modifier = Modifier,
-    state: GeneratorPageState,
+    qrBitmap: Bitmap?,
+    loaderOn: Boolean,
     viewModel: GeneratorPageViewModel
 ) {
     val context = LocalContext.current
     val askForWritePermission =
         rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()) {
             if (it) {
-                saveQrImageToExternalStorage(context, state, viewModel)
+                saveQrImageToExternalStorage(context, qrBitmap, viewModel)
             } else {
                 Toast.makeText(context, "Cannot save without permission", Toast.LENGTH_SHORT).show()
             }
@@ -174,57 +176,54 @@ fun QrCode(
         ActionIcon(
             modifier = Modifier.offset(x = (-15).dp),
             iconId = R.drawable.ic_share,
-            isVisible = state.qrCode != null
+            isVisible = qrBitmap != null
         ) {
-            if (state.qrCode != null) {
-                viewModel.onShareButtonClicked(context, state.qrCode!!)
+            if (qrBitmap != null) {
+                viewModel.onShareButtonClicked(context, qrBitmap!!)
             }
         }
         //qrBox
         Box(
             contentAlignment = Alignment.Center
         ) {
-            Crossfade(targetState = state) {
-                if (it.loaderOn) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.offset(y = (-50).dp),
-                        color = MaterialTheme.colors.surface
-                    )
-                } else if (it.qrCode != null) {
-                    Image(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(1f, true),
-                        contentDescription = "QR",
-                        bitmap = state.qrCode!!.asImageBitmap()
-                    )
-                } else {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_dashedrec),
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(1f, true)
-                            .align(Alignment.Center),
-                        contentDescription = "dashed rec"
-                    )
-                    Text(
-                        modifier = Modifier.align(Alignment.Center),
-                        text = "Here will be your generated QR code",
-                        color = MaterialTheme.colors.onBackground,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            if (loaderOn) {
+                CircularProgressIndicator(
+                    modifier = Modifier.offset(y = (-50).dp),
+                    color = MaterialTheme.colors.surface
+                )
+            } else if (qrBitmap != null) {
+                Image(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(1f, true),
+                    contentDescription = "QR",
+                    bitmap = qrBitmap.asImageBitmap()
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_dashedrec),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(1f, true)
+                        .align(Alignment.Center),
+                    contentDescription = "dashed rec"
+                )
+                Text(
+                    modifier = Modifier.align(Alignment.Center),
+                    text = "Here will be your generated QR code",
+                    color = MaterialTheme.colors.onBackground,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
-        Log.d(TAG, "QrCode: assigning qr -> ${state.qrCode}")
         ActionIcon(
             modifier = Modifier.offset(x = (15).dp),
             iconId = R.drawable.ic_save,
-            state.qrCode != null
+            qrBitmap != null
         ) {
             val writePermissionGranted = checkIfHasWritePermission(context)
             if (writePermissionGranted) {
-                saveQrImageToExternalStorage(context, state, viewModel)
+                saveQrImageToExternalStorage(context, bitmap = qrBitmap, viewModel)
             } else {
                 askForWritePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
@@ -234,11 +233,11 @@ fun QrCode(
 
 fun saveQrImageToExternalStorage(
     context: Context,
-    state: GeneratorPageState,
+    bitmap: Bitmap?,
     viewModel: GeneratorPageViewModel
 ) {
-    if (state.qrCode != null) {
-        if (viewModel.saveQrImageToExternalStorage(context, state.qrCode!!)) {
+    if (bitmap != null) {
+        if (viewModel.saveQrImageToExternalStorage(context, bitmap)) {
             Toast.makeText(context, "Successfully saved", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()
@@ -280,13 +279,11 @@ fun RowScope.ActionIcon(
 
 @Composable
 fun UrlTextField(
+    initialValue: String,
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester,
     onValueChange: (String) -> Unit
 ) {
-    val textFieldState = remember {
-        mutableStateOf<String>("")
-    }
     val customTextSelectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colors.primaryVariant,
         backgroundColor = MaterialTheme.colors.primaryVariant.copy(alpha = 0.4f)
@@ -301,9 +298,8 @@ fun UrlTextField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                value = textFieldState.value,
+                value = initialValue,
                 onValueChange = {
-                    textFieldState.value = it
                     onValueChange.invoke(it)
                 },
                 label = {

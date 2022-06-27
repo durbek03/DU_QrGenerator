@@ -40,7 +40,7 @@ class GeneratorPageViewModel @Inject constructor(
     )
 
     fun onTextFieldChange(newText: String) {
-   //     store.dispatch(GeneratorPageIntent.TextFieldStateChanged(newText))
+        store.dispatch(GeneratorPageIntent.TextFieldStateChanged(newText))
     }
 
     fun onAvaImagePicked(uri: Uri?) {
