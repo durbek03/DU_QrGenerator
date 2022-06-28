@@ -4,15 +4,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.duqr.mviSetup.Store
 import com.example.duqr.ui.generateQrPage.mviSetup.*
-import com.example.duqr.ui.generateQrPage.useCase.SaveQrUseCase
-import com.example.duqr.ui.generateQrPage.useCase.ShareQrUseCase
+import com.example.duqr.ui.useCase.SaveQrUseCase
+import com.example.duqr.ui.useCase.ShareQrUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -59,8 +57,8 @@ class GeneratorPageViewModel @Inject constructor(
         store.dispatch(GeneratorPageIntent.ChangeLoaderVisibility(true))
     }
 
-    fun saveQrImageToExternalStorage(context: Context, bitmap: Bitmap): Boolean {
-        return saveQrUseCase.saveQrToExternalStorage(context, bitmap)
+    fun saveQrImageToExternalStorage(context: Context, bitmap: Bitmap, fileName: String): Boolean {
+        return saveQrUseCase.saveQrToExternalStorage(context, bitmap, fileName)
     }
 
     fun onShareButtonClicked(context: Context, bitmap: Bitmap) {

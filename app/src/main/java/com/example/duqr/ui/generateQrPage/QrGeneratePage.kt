@@ -73,7 +73,13 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        QrCode(qrBitmap = state.value.qrCode, loaderOn = state.value.loaderOn, modifier = Modifier.fillMaxHeight(0.23f), viewModel = viewModel)
+        QrCode(
+            qrBitmap = state.value.qrCode,
+            loaderOn = state.value.loaderOn,
+            modifier = Modifier.fillMaxHeight(0.23f),
+            viewModel = viewModel,
+            fileName = state.value.textToEmbed
+        )
         Spacer(modifier = Modifier.height(20.dp))
         Button(
             colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.surface),
@@ -83,7 +89,10 @@ fun GeneratorPage(viewModel: GeneratorPageViewModel = hiltViewModel()) {
             Text(text = "Generate", color = MaterialTheme.colors.onSurface)
         }
         Spacer(modifier = Modifier.height(20.dp))
-        UrlTextField(focusRequester = focusRequester, initialValue = state.value.textToEmbed) { newText ->
+        UrlTextField(
+            focusRequester = focusRequester,
+            initialValue = state.value.textToEmbed
+        ) { newText ->
             viewModel.onTextFieldChange(newText)
         }
         Spacer(modifier = Modifier.height(20.dp))
@@ -155,6 +164,7 @@ fun generate(
 fun QrCode(
     modifier: Modifier = Modifier,
     qrBitmap: Bitmap?,
+    fileName: String,
     loaderOn: Boolean,
     viewModel: GeneratorPageViewModel
 ) {
@@ -162,7 +172,7 @@ fun QrCode(
     val askForWritePermission =
         rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()) {
             if (it) {
-                saveQrImageToExternalStorage(context, qrBitmap, viewModel)
+                saveQrImageToExternalStorage(context, qrBitmap, viewModel = viewModel, fileName = fileName)
             } else {
                 Toast.makeText(context, "Cannot save without permission", Toast.LENGTH_SHORT).show()
             }
@@ -179,7 +189,7 @@ fun QrCode(
             isVisible = qrBitmap != null
         ) {
             if (qrBitmap != null) {
-                viewModel.onShareButtonClicked(context, qrBitmap!!)
+                viewModel.onShareButtonClicked(context, qrBitmap)
             }
         }
         //qrBox
@@ -223,7 +233,7 @@ fun QrCode(
         ) {
             val writePermissionGranted = checkIfHasWritePermission(context)
             if (writePermissionGranted) {
-                saveQrImageToExternalStorage(context, bitmap = qrBitmap, viewModel)
+                saveQrImageToExternalStorage(context, bitmap = qrBitmap, viewModel = viewModel, fileName = fileName)
             } else {
                 askForWritePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
@@ -234,10 +244,11 @@ fun QrCode(
 fun saveQrImageToExternalStorage(
     context: Context,
     bitmap: Bitmap?,
+    fileName: String,
     viewModel: GeneratorPageViewModel
 ) {
     if (bitmap != null) {
-        if (viewModel.saveQrImageToExternalStorage(context, bitmap)) {
+        if (viewModel.saveQrImageToExternalStorage(context, bitmap, fileName)) {
             Toast.makeText(context, "Successfully saved", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "Couldn't save image", Toast.LENGTH_SHORT).show()

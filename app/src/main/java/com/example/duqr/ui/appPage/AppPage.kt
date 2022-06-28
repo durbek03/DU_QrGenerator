@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.max
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.duqr.constants.collectFlowAsState
 import com.example.duqr.ui.generateQrPage.GeneratorPage
+import com.example.duqr.ui.qrGalleryPage.QrGalleryPage
 import java.lang.Exception
 import kotlin.math.round
 
@@ -41,9 +42,7 @@ fun AppPage() {
         Box(modifier = Modifier.fillMaxHeight(0.93f)) {
             when (appPageState.value) {
                 BottomNavigationState.GalleryPage -> {
-                    Box(modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Blue))
+                    QrGalleryPage()
                 }
                 BottomNavigationState.GeneratorPage -> {
                     GeneratorPage()

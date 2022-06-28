@@ -1,4 +1,4 @@
-package com.example.duqr.ui.generateQrPage.useCase
+package com.example.duqr.ui.useCase
 
 import android.content.Context
 import android.content.Intent
@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
-import java.util.*
 import javax.inject.Inject
 
 

@@ -1,16 +1,16 @@
-package com.example.duqr.ui.generateQrPage.useCase
+package com.example.duqr.ui.useCase
 
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.provider.MediaStore
+import com.example.duqr.constants.Constants
 import com.example.duqr.constants.sdk29AndUp
 import okio.IOException
-import java.util.*
 import javax.inject.Inject
 
 class SaveQrUseCase @Inject constructor() {
-    fun saveQrToExternalStorage(context: Context, bitmap: Bitmap) : Boolean {
+    fun saveQrToExternalStorage(context: Context, bitmap: Bitmap, fileName: String): Boolean {
         val contentResolver = context.contentResolver
 
         val imageCollection = sdk29AndUp {
@@ -18,7 +18,7 @@ class SaveQrUseCase @Inject constructor() {
         } ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
         val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, UUID.randomUUID().toString())
+            put(MediaStore.Images.Media.DISPLAY_NAME, Constants.GALLERY_IMAGE_ENDKEY + fileName)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
             put(MediaStore.Images.Media.WIDTH, bitmap.width)
             put(MediaStore.Images.Media.HEIGHT, bitmap.height)
